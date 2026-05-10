@@ -505,6 +505,7 @@ endif()
 add_library(miniaudio
     miniaudio.c
     miniaudio.h
+    miniaudio_csharp_extension.c
 )
 
 list(APPEND LIBS_TO_INSTALL miniaudio)
