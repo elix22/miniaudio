@@ -383,20 +383,6 @@ public static extern ma_result ma_log_unregister_callback(ma_log* pLog, ma_log_c
 #endif
 public static extern ma_result ma_log_post(ma_log* pLog, uint level, [M(U.LPUTF8Str)] string pMessage);
 
-#if __IOS__
-[DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_log_postv", CallingConvention = CallingConvention.Cdecl)]
-#else
-[DllImport("miniaudio", EntryPoint = "ma_log_postv", CallingConvention = CallingConvention.Cdecl)]
-#endif
-public static extern ma_result ma_log_postv(ma_log* pLog, uint level, [M(U.LPUTF8Str)] string pFormat,  argsIntPtr  /* ??? (as_csharp_arg_type) */);
-
-#if __IOS__
-[DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_log_postf", CallingConvention = CallingConvention.Cdecl)]
-#else
-[DllImport("miniaudio", EntryPoint = "ma_log_postf", CallingConvention = CallingConvention.Cdecl)]
-#endif
-public static extern ma_result ma_log_postf(ma_log* pLog, uint level, [M(U.LPUTF8Str)] string pFormat);
-
 [StructLayout(LayoutKind.Sequential)]
 public struct ma_biquad_coefficient
 {
@@ -1811,7 +1797,7 @@ public static extern ma_result ma_fader_process_pcm_frames(ma_fader* pFader, voi
 #else
 [DllImport("miniaudio", EntryPoint = "ma_fader_get_data_format", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern void ma_fader_get_data_format(in ma_fader pFader,  pFormatIntPtr  /* ??? (as_csharp_arg_type) */, ref uint pChannels, ref uint pSampleRate);
+public static extern void ma_fader_get_data_format(in ma_fader pFader, ref ma_format pFormat, ref uint pChannels, ref uint pSampleRate);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_fader_set_fade", CallingConvention = CallingConvention.Cdecl)]
@@ -2453,6 +2439,8 @@ public struct ma_linear_resampler
     public uint inAdvanceFrac;
     public uint inTimeInt;
     public uint inTimeFrac;
+    public void* x0; // union { float* f32; ma_int16* s16; }
+    public void* x1; // union { float* f32; ma_int16* s16; }
     public ma_lpf lpf;
     public void* _pHeap;
     public uint _ownsHeap;
@@ -2545,14 +2533,14 @@ public static extern ma_result ma_linear_resampler_reset(ma_linear_resampler* pR
 public struct ma_resampling_backend_vtable
 {
     public delegate* unmanaged<void*, ma_resampler_config*, nuint*, void*> onGetHeapSize;
-    public delegate* unmanaged<void*, ma_resampler_config*, void*, ??? (as_extern_c_arg_type), void*> onInit;
+    public delegate* unmanaged<void*, ma_resampler_config*, void*, void*, void*> onInit;
     public delegate* unmanaged<void*, IntPtr, ma_allocation_callbacks*, void> onUninit;
     public delegate* unmanaged<void*, IntPtr, void*, ulong*, void*, ulong*, void*> onProcess;
     public delegate* unmanaged<void*, IntPtr, uint, uint, void*> onSetRate;
-    public delegate* unmanaged<void*, ??? (as_extern_c_arg_type), void*> onGetInputLatency;
-    public delegate* unmanaged<void*, ??? (as_extern_c_arg_type), void*> onGetOutputLatency;
-    public delegate* unmanaged<void*, ??? (as_extern_c_arg_type), ulong, ulong*, void*> onGetRequiredInputFrameCount;
-    public delegate* unmanaged<void*, ??? (as_extern_c_arg_type), ulong, ulong*, void*> onGetExpectedOutputFrameCount;
+    public delegate* unmanaged<void*, IntPtr, void*> onGetInputLatency;
+    public delegate* unmanaged<void*, IntPtr, void*> onGetOutputLatency;
+    public delegate* unmanaged<void*, IntPtr, ulong, ulong*, void*> onGetRequiredInputFrameCount;
+    public delegate* unmanaged<void*, IntPtr, ulong, ulong*, void*> onGetExpectedOutputFrameCount;
     public delegate* unmanaged<void*, IntPtr, void*> onReset;
 }
 public enum ma_resample_algorithm
@@ -2570,6 +2558,7 @@ public struct ma_resampler_config
     public ma_resample_algorithm algorithm;
     public ma_resampling_backend_vtable* pBackendVTable;
     public void* pBackendUserData;
+    public uint lpfOrder; /* linear.lpfOrder */
 }
 #if WEB
 public static ma_resampler_config ma_resampler_config_init(ma_format format, uint channels, uint sampleRateIn, uint sampleRateOut, ma_resample_algorithm algorithm)
@@ -2597,6 +2586,7 @@ public struct ma_resampler
     public uint channels;
     public uint sampleRateIn;
     public uint sampleRateOut;
+    public ma_linear_resampler state; // union { ma_linear_resampler linear; }
     public void* _pHeap;
     public uint _ownsHeap;
 }
@@ -2739,6 +2729,7 @@ public struct ma_channel_converter
     public byte* pChannelMapIn;
     public byte* pChannelMapOut;
     public byte* pShuffleTable;
+    public void* weights; // union { float** f32; ma_int32** s16; }
     public void* _pHeap;
     public uint _ownsHeap;
 }
@@ -3135,7 +3126,7 @@ public static extern void ma_deinterleave_pcm_frames(ma_format format, uint chan
 #else
 [DllImport("miniaudio", EntryPoint = "ma_interleave_pcm_frames", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern void ma_interleave_pcm_frames(ma_format format, uint channels, ulong frameCount,  ppDeinterleavedPCMFramesIntPtr  /* ??? (as_csharp_arg_type) */, void* pInterleavedPCMFrames);
+public static extern void ma_interleave_pcm_frames(ma_format format, uint channels, ulong frameCount, void** ppDeinterleavedPCMFrames, void* pInterleavedPCMFrames);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_channel_map_get_channel", CallingConvention = CallingConvention.Cdecl)]
@@ -3258,7 +3249,7 @@ public struct ma_data_source_vtable
 {
     public delegate* unmanaged<IntPtr, void*, ulong, ulong*, void*> onRead;
     public delegate* unmanaged<IntPtr, ulong, void*> onSeek;
-    public delegate* unmanaged<IntPtr, ??? (as_extern_c_arg_type), uint*, uint*, byte*, nuint, void*> onGetDataFormat;
+    public delegate* unmanaged<IntPtr, ma_format*, uint*, uint*, byte*, nuint, void*> onGetDataFormat;
     public delegate* unmanaged<IntPtr, ulong*, void*> onGetCursor;
     public delegate* unmanaged<IntPtr, ulong*, void*> onGetLength;
     public delegate* unmanaged<IntPtr, uint, void*> onSetLooping;
@@ -3352,7 +3343,7 @@ public static extern ma_result ma_data_source_seek_to_second(IntPtr pDataSource,
 #else
 [DllImport("miniaudio", EntryPoint = "ma_data_source_get_data_format", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_data_source_get_data_format(IntPtr pDataSource,  pFormatIntPtr  /* ??? (as_csharp_arg_type) */, ref uint pChannels, ref uint pSampleRate, ref byte pChannelMap, nuint channelMapCap);
+public static extern ma_result ma_data_source_get_data_format(IntPtr pDataSource, ref ma_format pFormat, ref uint pChannels, ref uint pSampleRate, ref byte pChannelMap, nuint channelMapCap);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_data_source_get_cursor_in_pcm_frames", CallingConvention = CallingConvention.Cdecl)]
@@ -3394,7 +3385,7 @@ public static extern ma_result ma_data_source_set_looping(IntPtr pDataSource, ui
 #else
 [DllImport("miniaudio", EntryPoint = "ma_data_source_is_looping", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern uint ma_data_source_is_looping( pDataSourceIntPtr  /* ??? (as_csharp_arg_type) */);
+public static extern uint ma_data_source_is_looping(IntPtr pDataSource);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_data_source_set_range_in_pcm_frames", CallingConvention = CallingConvention.Cdecl)]
@@ -3408,7 +3399,7 @@ public static extern ma_result ma_data_source_set_range_in_pcm_frames(IntPtr pDa
 #else
 [DllImport("miniaudio", EntryPoint = "ma_data_source_get_range_in_pcm_frames", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern void ma_data_source_get_range_in_pcm_frames( pDataSourceIntPtr  /* ??? (as_csharp_arg_type) */, ref ulong pRangeBegInFrames, ref ulong pRangeEndInFrames);
+public static extern void ma_data_source_get_range_in_pcm_frames(IntPtr pDataSource, ref ulong pRangeBegInFrames, ref ulong pRangeEndInFrames);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_data_source_set_loop_point_in_pcm_frames", CallingConvention = CallingConvention.Cdecl)]
@@ -3422,7 +3413,7 @@ public static extern ma_result ma_data_source_set_loop_point_in_pcm_frames(IntPt
 #else
 [DllImport("miniaudio", EntryPoint = "ma_data_source_get_loop_point_in_pcm_frames", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern void ma_data_source_get_loop_point_in_pcm_frames( pDataSourceIntPtr  /* ??? (as_csharp_arg_type) */, ref ulong pLoopBegInFrames, ref ulong pLoopEndInFrames);
+public static extern void ma_data_source_get_loop_point_in_pcm_frames(IntPtr pDataSource, ref ulong pLoopBegInFrames, ref ulong pLoopEndInFrames);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_data_source_set_current", CallingConvention = CallingConvention.Cdecl)]
@@ -3436,7 +3427,7 @@ public static extern ma_result ma_data_source_set_current(IntPtr pDataSource, In
 #else
 [DllImport("miniaudio", EntryPoint = "ma_data_source_get_current", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern IntPtr ma_data_source_get_current( pDataSourceIntPtr  /* ??? (as_csharp_arg_type) */);
+public static extern IntPtr ma_data_source_get_current(IntPtr pDataSource);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_data_source_set_next", CallingConvention = CallingConvention.Cdecl)]
@@ -3450,7 +3441,7 @@ public static extern ma_result ma_data_source_set_next(IntPtr pDataSource, IntPt
 #else
 [DllImport("miniaudio", EntryPoint = "ma_data_source_get_next", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern IntPtr ma_data_source_get_next( pDataSourceIntPtr  /* ??? (as_csharp_arg_type) */);
+public static extern IntPtr ma_data_source_get_next(IntPtr pDataSource);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_data_source_set_next_callback", CallingConvention = CallingConvention.Cdecl)]
@@ -3464,7 +3455,7 @@ public static extern ma_result ma_data_source_set_next_callback(IntPtr pDataSour
 #else
 [DllImport("miniaudio", EntryPoint = "ma_data_source_get_next_callback", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern IntPtr ma_data_source_get_next_callback( pDataSourceIntPtr  /* ??? (as_csharp_arg_type) */);
+public static extern IntPtr ma_data_source_get_next_callback(IntPtr pDataSource);
 
 [StructLayout(LayoutKind.Sequential)]
 public struct ma_audio_buffer_ref
@@ -3614,7 +3605,7 @@ public static extern ma_result ma_audio_buffer_init_copy(in ma_audio_buffer_conf
 #else
 [DllImport("miniaudio", EntryPoint = "ma_audio_buffer_alloc_and_init", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_audio_buffer_alloc_and_init(in ma_audio_buffer_config pConfig,  ppAudioBufferIntPtr  /* ??? (as_csharp_arg_type) */);
+public static extern ma_result ma_audio_buffer_alloc_and_init(in ma_audio_buffer_config pConfig, out IntPtr ppAudioBuffer);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_audio_buffer_uninit", CallingConvention = CallingConvention.Cdecl)]
@@ -3748,7 +3739,7 @@ public static extern ma_result ma_paged_audio_buffer_data_get_length_in_pcm_fram
 #else
 [DllImport("miniaudio", EntryPoint = "ma_paged_audio_buffer_data_allocate_page", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_paged_audio_buffer_data_allocate_page(ma_paged_audio_buffer_data* pData, ulong pageSizeInFrames, void* pInitialData, in ma_allocation_callbacks pAllocationCallbacks,  ppPageIntPtr  /* ??? (as_csharp_arg_type) */);
+public static extern ma_result ma_paged_audio_buffer_data_allocate_page(ma_paged_audio_buffer_data* pData, ulong pageSizeInFrames, void* pInitialData, in ma_allocation_callbacks pAllocationCallbacks, out IntPtr ppPage);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_paged_audio_buffer_data_free_page", CallingConvention = CallingConvention.Cdecl)]
@@ -4286,21 +4277,21 @@ public static string ma_log_level_to_string(uint logLevel)
 #else
 [DllImport("miniaudio", EntryPoint = "ma_spinlock_lock", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_spinlock_lock( pSpinlockIntPtr  /* ??? (as_csharp_arg_type) */);
+public static extern ma_result ma_spinlock_lock(uint* pSpinlock);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_spinlock_lock_noyield", CallingConvention = CallingConvention.Cdecl)]
 #else
 [DllImport("miniaudio", EntryPoint = "ma_spinlock_lock_noyield", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_spinlock_lock_noyield( pSpinlockIntPtr  /* ??? (as_csharp_arg_type) */);
+public static extern ma_result ma_spinlock_lock_noyield(uint* pSpinlock);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_spinlock_unlock", CallingConvention = CallingConvention.Cdecl)]
 #else
 [DllImport("miniaudio", EntryPoint = "ma_spinlock_unlock", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_spinlock_unlock( pSpinlockIntPtr  /* ??? (as_csharp_arg_type) */);
+public static extern ma_result ma_spinlock_unlock(uint* pSpinlock);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_mutex_init", CallingConvention = CallingConvention.Cdecl)]
@@ -7011,19 +7002,19 @@ public struct ma_device_descriptor
 [StructLayout(LayoutKind.Sequential)]
 public struct ma_backend_callbacks
 {
-    public delegate* unmanaged<??? (as_extern_c_arg_type), ma_context_config*, ??? (as_extern_c_arg_type), void*> onContextInit;
-    public delegate* unmanaged<??? (as_extern_c_arg_type), void*> onContextUninit;
-    public delegate* unmanaged<??? (as_extern_c_arg_type), ??? (as_extern_c_arg_type), void*, void*> onContextEnumerateDevices;
-    public delegate* unmanaged<??? (as_extern_c_arg_type), ma_device_type, ma_device_id*, ??? (as_extern_c_arg_type), void*> onContextGetDeviceInfo;
-    public delegate* unmanaged<??? (as_extern_c_arg_type), ma_device_config*, ??? (as_extern_c_arg_type), ??? (as_extern_c_arg_type), void*> onDeviceInit;
-    public delegate* unmanaged<??? (as_extern_c_arg_type), void*> onDeviceUninit;
-    public delegate* unmanaged<??? (as_extern_c_arg_type), void*> onDeviceStart;
-    public delegate* unmanaged<??? (as_extern_c_arg_type), void*> onDeviceStop;
-    public delegate* unmanaged<??? (as_extern_c_arg_type), void*, uint, uint*, void*> onDeviceRead;
-    public delegate* unmanaged<??? (as_extern_c_arg_type), void*, uint, uint*, void*> onDeviceWrite;
-    public delegate* unmanaged<??? (as_extern_c_arg_type), void*> onDeviceDataLoop;
-    public delegate* unmanaged<??? (as_extern_c_arg_type), void*> onDeviceDataLoopWakeup;
-    public delegate* unmanaged<??? (as_extern_c_arg_type), ma_device_type, ??? (as_extern_c_arg_type), void*> onDeviceGetInfo;
+    public delegate* unmanaged<ma_context*, ma_context_config*, ma_backend_callbacks*, void*> onContextInit;
+    public delegate* unmanaged<ma_context*, void*> onContextUninit;
+    public delegate* unmanaged<ma_context*, IntPtr, void*, void*> onContextEnumerateDevices;
+    public delegate* unmanaged<ma_context*, ma_device_type, ma_device_id*, ma_device_info*, void*> onContextGetDeviceInfo;
+    public delegate* unmanaged<ma_device*, ma_device_config*, ma_device_descriptor*, ma_device_descriptor*, void*> onDeviceInit;
+    public delegate* unmanaged<ma_device*, void*> onDeviceUninit;
+    public delegate* unmanaged<ma_device*, void*> onDeviceStart;
+    public delegate* unmanaged<ma_device*, void*> onDeviceStop;
+    public delegate* unmanaged<ma_device*, void*, uint, uint*, void*> onDeviceRead;
+    public delegate* unmanaged<ma_device*, void*, uint, uint*, void*> onDeviceWrite;
+    public delegate* unmanaged<ma_device*, void*> onDeviceDataLoop;
+    public delegate* unmanaged<ma_device*, void*> onDeviceDataLoopWakeup;
+    public delegate* unmanaged<ma_device*, ma_device_type, ma_device_info*, void*> onDeviceGetInfo;
 }
 [StructLayout(LayoutKind.Sequential)]
 public struct ma_context_config
@@ -7105,7 +7096,7 @@ public static extern ma_context_config ma_context_config_init();
 #else
 [DllImport("miniaudio", EntryPoint = "ma_context_init", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_context_init( backendsIntPtr  /* ??? (as_csharp_arg_type) */, uint backendCount, in ma_context_config pConfig, ma_context* pContext);
+public static extern ma_result ma_context_init(ma_backend* backends, uint backendCount, in ma_context_config pConfig, ma_context* pContext);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_context_uninit", CallingConvention = CallingConvention.Cdecl)]
@@ -7133,14 +7124,14 @@ public static extern ma_log* ma_context_get_log(ma_context* pContext);
 #else
 [DllImport("miniaudio", EntryPoint = "ma_context_enumerate_devices", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_context_enumerate_devices(ma_context* pContext,  callbackIntPtr  /* ??? (as_csharp_arg_type) */, void* pUserData);
+public static extern ma_result ma_context_enumerate_devices(ma_context* pContext, IntPtr callback, void* pUserData);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_context_get_devices", CallingConvention = CallingConvention.Cdecl)]
 #else
 [DllImport("miniaudio", EntryPoint = "ma_context_get_devices", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_context_get_devices(ma_context* pContext,  ppPlaybackDeviceInfosIntPtr  /* ??? (as_csharp_arg_type) */, ref uint pPlaybackDeviceCount,  ppCaptureDeviceInfosIntPtr  /* ??? (as_csharp_arg_type) */, ref uint pCaptureDeviceCount);
+public static extern ma_result ma_context_get_devices(ma_context* pContext, out IntPtr ppPlaybackDeviceInfos, ref uint pPlaybackDeviceCount, out IntPtr ppCaptureDeviceInfos, ref uint pCaptureDeviceCount);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_context_get_device_info", CallingConvention = CallingConvention.Cdecl)]
@@ -7184,7 +7175,7 @@ public static extern ma_result ma_device_init(ma_context* pContext, in ma_device
 #else
 [DllImport("miniaudio", EntryPoint = "ma_device_init_ex", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_device_init_ex( backendsIntPtr  /* ??? (as_csharp_arg_type) */, uint backendCount, in ma_context_config pContextConfig, in ma_device_config pConfig, ma_device* pDevice);
+public static extern ma_result ma_device_init_ex(ma_backend* backends, uint backendCount, in ma_context_config pContextConfig, in ma_device_config pConfig, ma_device* pDevice);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_device_uninit", CallingConvention = CallingConvention.Cdecl)]
@@ -7328,7 +7319,7 @@ public static string ma_get_backend_name(ma_backend backend)
 #else
 [DllImport("miniaudio", EntryPoint = "ma_get_backend_from_name", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_get_backend_from_name([M(U.LPUTF8Str)] string pBackendName,  pBackendIntPtr  /* ??? (as_csharp_arg_type) */);
+public static extern ma_result ma_get_backend_from_name([M(U.LPUTF8Str)] string pBackendName, ma_backend* pBackend);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_is_backend_enabled", CallingConvention = CallingConvention.Cdecl)]
@@ -7342,7 +7333,7 @@ public static extern uint ma_is_backend_enabled(ma_backend backend);
 #else
 [DllImport("miniaudio", EntryPoint = "ma_get_enabled_backends", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_get_enabled_backends( pBackendsIntPtr  /* ??? (as_csharp_arg_type) */, nuint backendCap, ref nuint pBackendCount);
+public static extern ma_result ma_get_enabled_backends(ma_backend* pBackends, nuint backendCap, ref nuint pBackendCount);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_is_loopback_supported", CallingConvention = CallingConvention.Cdecl)]
@@ -7678,70 +7669,70 @@ public struct ma_file_info
 [StructLayout(LayoutKind.Sequential)]
 public struct ma_vfs_callbacks
 {
-    public delegate* unmanaged<IntPtr, byte*, uint, ??? (as_extern_c_arg_type), void*> onOpen;
-    public delegate* unmanaged<IntPtr, IntPtr, uint, ??? (as_extern_c_arg_type), void*> onOpenW;
-    public delegate* unmanaged<IntPtr, ??? (as_extern_c_arg_type), void*> onClose;
-    public delegate* unmanaged<IntPtr, ??? (as_extern_c_arg_type), void*, nuint, nuint*, void*> onRead;
-    public delegate* unmanaged<IntPtr, ??? (as_extern_c_arg_type), void*, nuint, nuint*, void*> onWrite;
-    public delegate* unmanaged<IntPtr, ??? (as_extern_c_arg_type), long, ma_seek_origin, void*> onSeek;
-    public delegate* unmanaged<IntPtr, ??? (as_extern_c_arg_type), long*, void*> onTell;
-    public delegate* unmanaged<IntPtr, ??? (as_extern_c_arg_type), ??? (as_extern_c_arg_type), void*> onInfo;
+    public delegate* unmanaged<IntPtr, byte*, uint, IntPtr, void*> onOpen;
+    public delegate* unmanaged<IntPtr, IntPtr, uint, IntPtr, void*> onOpenW;
+    public delegate* unmanaged<IntPtr, IntPtr, void*> onClose;
+    public delegate* unmanaged<IntPtr, IntPtr, void*, nuint, nuint*, void*> onRead;
+    public delegate* unmanaged<IntPtr, IntPtr, void*, nuint, nuint*, void*> onWrite;
+    public delegate* unmanaged<IntPtr, IntPtr, long, ma_seek_origin, void*> onSeek;
+    public delegate* unmanaged<IntPtr, IntPtr, long*, void*> onTell;
+    public delegate* unmanaged<IntPtr, IntPtr, ma_file_info*, void*> onInfo;
 }
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_vfs_open", CallingConvention = CallingConvention.Cdecl)]
 #else
 [DllImport("miniaudio", EntryPoint = "ma_vfs_open", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_vfs_open(IntPtr pVFS, [M(U.LPUTF8Str)] string pFilePath, uint openMode,  pFileIntPtr  /* ??? (as_csharp_arg_type) */);
+public static extern ma_result ma_vfs_open(IntPtr pVFS, [M(U.LPUTF8Str)] string pFilePath, uint openMode, IntPtr pFile);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_vfs_open_w", CallingConvention = CallingConvention.Cdecl)]
 #else
 [DllImport("miniaudio", EntryPoint = "ma_vfs_open_w", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_vfs_open_w(IntPtr pVFS, IntPtr pFilePath, uint openMode,  pFileIntPtr  /* ??? (as_csharp_arg_type) */);
+public static extern ma_result ma_vfs_open_w(IntPtr pVFS, IntPtr pFilePath, uint openMode, IntPtr pFile);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_vfs_close", CallingConvention = CallingConvention.Cdecl)]
 #else
 [DllImport("miniaudio", EntryPoint = "ma_vfs_close", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_vfs_close(IntPtr pVFS,  fileIntPtr  /* ??? (as_csharp_arg_type) */);
+public static extern ma_result ma_vfs_close(IntPtr pVFS, IntPtr file);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_vfs_read", CallingConvention = CallingConvention.Cdecl)]
 #else
 [DllImport("miniaudio", EntryPoint = "ma_vfs_read", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_vfs_read(IntPtr pVFS,  fileIntPtr  /* ??? (as_csharp_arg_type) */, void* pDst, nuint sizeInBytes, ref nuint pBytesRead);
+public static extern ma_result ma_vfs_read(IntPtr pVFS, IntPtr file, void* pDst, nuint sizeInBytes, ref nuint pBytesRead);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_vfs_write", CallingConvention = CallingConvention.Cdecl)]
 #else
 [DllImport("miniaudio", EntryPoint = "ma_vfs_write", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_vfs_write(IntPtr pVFS,  fileIntPtr  /* ??? (as_csharp_arg_type) */, void* pSrc, nuint sizeInBytes, ref nuint pBytesWritten);
+public static extern ma_result ma_vfs_write(IntPtr pVFS, IntPtr file, void* pSrc, nuint sizeInBytes, ref nuint pBytesWritten);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_vfs_seek", CallingConvention = CallingConvention.Cdecl)]
 #else
 [DllImport("miniaudio", EntryPoint = "ma_vfs_seek", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_vfs_seek(IntPtr pVFS,  fileIntPtr  /* ??? (as_csharp_arg_type) */, long offset, ma_seek_origin origin);
+public static extern ma_result ma_vfs_seek(IntPtr pVFS, IntPtr file, long offset, ma_seek_origin origin);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_vfs_tell", CallingConvention = CallingConvention.Cdecl)]
 #else
 [DllImport("miniaudio", EntryPoint = "ma_vfs_tell", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_vfs_tell(IntPtr pVFS,  fileIntPtr  /* ??? (as_csharp_arg_type) */, ref long pCursor);
+public static extern ma_result ma_vfs_tell(IntPtr pVFS, IntPtr file, ref long pCursor);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_vfs_info", CallingConvention = CallingConvention.Cdecl)]
 #else
 [DllImport("miniaudio", EntryPoint = "ma_vfs_info", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_vfs_info(IntPtr pVFS,  fileIntPtr  /* ??? (as_csharp_arg_type) */, ma_file_info* pInfo);
+public static extern ma_result ma_vfs_info(IntPtr pVFS, IntPtr file, ma_file_info* pInfo);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_vfs_open_and_read_file", CallingConvention = CallingConvention.Cdecl)]
@@ -7796,10 +7787,10 @@ public static extern ma_decoding_backend_config ma_decoding_backend_config_init(
 [StructLayout(LayoutKind.Sequential)]
 public struct ma_decoding_backend_vtable
 {
-    public delegate* unmanaged<void*, IntPtr, IntPtr, IntPtr, void*, ma_decoding_backend_config*, ma_allocation_callbacks*, ??? (as_extern_c_arg_type), void*> onInit;
-    public delegate* unmanaged<void*, byte*, ma_decoding_backend_config*, ma_allocation_callbacks*, ??? (as_extern_c_arg_type), void*> onInitFile;
-    public delegate* unmanaged<void*, IntPtr, ma_decoding_backend_config*, ma_allocation_callbacks*, ??? (as_extern_c_arg_type), void*> onInitFileW;
-    public delegate* unmanaged<void*, void*, nuint, ma_decoding_backend_config*, ma_allocation_callbacks*, ??? (as_extern_c_arg_type), void*> onInitMemory;
+    public delegate* unmanaged<void*, IntPtr, IntPtr, IntPtr, void*, ma_decoding_backend_config*, ma_allocation_callbacks*, void*, void*> onInit;
+    public delegate* unmanaged<void*, byte*, ma_decoding_backend_config*, ma_allocation_callbacks*, void*, void*> onInitFile;
+    public delegate* unmanaged<void*, IntPtr, ma_decoding_backend_config*, ma_allocation_callbacks*, void*, void*> onInitFileW;
+    public delegate* unmanaged<void*, void*, nuint, ma_decoding_backend_config*, ma_allocation_callbacks*, void*, void*> onInitMemory;
     public delegate* unmanaged<void*, IntPtr, ma_allocation_callbacks*, void> onUninit;
 }
 [StructLayout(LayoutKind.Sequential)]
@@ -7819,6 +7810,13 @@ public struct ma_decoder_config
     public uint customBackendCount;
     public void* pCustomBackendUserData;
 }
+// Helper for ma_decoder.data union: max(vfs:2 ptrs, memory:3 ptr-sized) = 3 * pointer_size
+#if WEB
+[StructLayout(LayoutKind.Explicit, Size = 12)]   // 3 x 4 bytes (wasm32)
+#else
+[StructLayout(LayoutKind.Explicit, Size = 24)]   // 3 x 8 bytes (x64)
+#endif
+public struct ma_decoder_data_union { }
 [StructLayout(LayoutKind.Sequential)]
 public struct ma_decoder
 {
@@ -7840,6 +7838,7 @@ public struct ma_decoder
     public ulong inputCacheConsumed;
     public ulong inputCacheRemaining;
     public ma_allocation_callbacks allocationCallbacks;
+    public ma_decoder_data_union data; // union { vfs { pVFS, file }; memory { pData, dataSize, currentReadPos }; }
 }
 #if WEB
 public static ma_decoder_config ma_decoder_config_init(ma_format outputFormat, uint outputChannels, uint outputSampleRate)
@@ -7941,7 +7940,7 @@ public static extern ma_result ma_decoder_seek_to_pcm_frame(ma_decoder* pDecoder
 #else
 [DllImport("miniaudio", EntryPoint = "ma_decoder_get_data_format", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_decoder_get_data_format(ma_decoder* pDecoder,  pFormatIntPtr  /* ??? (as_csharp_arg_type) */, ref uint pChannels, ref uint pSampleRate, ref byte pChannelMap, nuint channelMapCap);
+public static extern ma_result ma_decoder_get_data_format(ma_decoder* pDecoder, ref ma_format pFormat, ref uint pChannels, ref uint pSampleRate, ref byte pChannelMap, nuint channelMapCap);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_decoder_get_cursor_in_pcm_frames", CallingConvention = CallingConvention.Cdecl)]
@@ -8776,7 +8775,7 @@ public static extern ma_result ma_resource_manager_data_buffer_seek_to_pcm_frame
 #else
 [DllImport("miniaudio", EntryPoint = "ma_resource_manager_data_buffer_get_data_format", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_resource_manager_data_buffer_get_data_format(ma_resource_manager_data_buffer* pDataBuffer,  pFormatIntPtr  /* ??? (as_csharp_arg_type) */, ref uint pChannels, ref uint pSampleRate, ref byte pChannelMap, nuint channelMapCap);
+public static extern ma_result ma_resource_manager_data_buffer_get_data_format(ma_resource_manager_data_buffer* pDataBuffer, ref ma_format pFormat, ref uint pChannels, ref uint pSampleRate, ref byte pChannelMap, nuint channelMapCap);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_resource_manager_data_buffer_get_cursor_in_pcm_frames", CallingConvention = CallingConvention.Cdecl)]
@@ -8867,7 +8866,7 @@ public static extern ma_result ma_resource_manager_data_stream_seek_to_pcm_frame
 #else
 [DllImport("miniaudio", EntryPoint = "ma_resource_manager_data_stream_get_data_format", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_resource_manager_data_stream_get_data_format(ma_resource_manager_data_stream* pDataStream,  pFormatIntPtr  /* ??? (as_csharp_arg_type) */, ref uint pChannels, ref uint pSampleRate, ref byte pChannelMap, nuint channelMapCap);
+public static extern ma_result ma_resource_manager_data_stream_get_data_format(ma_resource_manager_data_stream* pDataStream, ref ma_format pFormat, ref uint pChannels, ref uint pSampleRate, ref byte pChannelMap, nuint channelMapCap);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_resource_manager_data_stream_get_cursor_in_pcm_frames", CallingConvention = CallingConvention.Cdecl)]
@@ -8965,7 +8964,7 @@ public static extern ma_result ma_resource_manager_data_source_seek_to_pcm_frame
 #else
 [DllImport("miniaudio", EntryPoint = "ma_resource_manager_data_source_get_data_format", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_resource_manager_data_source_get_data_format(ma_resource_manager_data_source* pDataSource,  pFormatIntPtr  /* ??? (as_csharp_arg_type) */, ref uint pChannels, ref uint pSampleRate, ref byte pChannelMap, nuint channelMapCap);
+public static extern ma_result ma_resource_manager_data_source_get_data_format(ma_resource_manager_data_source* pDataSource, ref ma_format pFormat, ref uint pChannels, ref uint pSampleRate, ref byte pChannelMap, nuint channelMapCap);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_resource_manager_data_source_get_cursor_in_pcm_frames", CallingConvention = CallingConvention.Cdecl)]
@@ -9074,7 +9073,7 @@ public enum ma_node_state
 [StructLayout(LayoutKind.Sequential)]
 public struct ma_node_vtable
 {
-    public delegate* unmanaged<IntPtr, ??? (as_extern_c_arg_type), uint*, ??? (as_extern_c_arg_type), uint*, void> onProcess;
+    public delegate* unmanaged<IntPtr, void*, uint*, void*, uint*, void> onProcess;
     public delegate* unmanaged<IntPtr, uint, uint*, void*> onGetRequiredInputFrameCount;
     public byte inputBusCount;
     public byte outputBusCount;
@@ -9209,35 +9208,35 @@ public static extern void ma_node_uninit(IntPtr pNode, in ma_allocation_callback
 #else
 [DllImport("miniaudio", EntryPoint = "ma_node_get_node_graph", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_node_graph* ma_node_get_node_graph( pNodeIntPtr  /* ??? (as_csharp_arg_type) */);
+public static extern ma_node_graph* ma_node_get_node_graph(IntPtr pNode);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_node_get_input_bus_count", CallingConvention = CallingConvention.Cdecl)]
 #else
 [DllImport("miniaudio", EntryPoint = "ma_node_get_input_bus_count", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern uint ma_node_get_input_bus_count( pNodeIntPtr  /* ??? (as_csharp_arg_type) */);
+public static extern uint ma_node_get_input_bus_count(IntPtr pNode);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_node_get_output_bus_count", CallingConvention = CallingConvention.Cdecl)]
 #else
 [DllImport("miniaudio", EntryPoint = "ma_node_get_output_bus_count", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern uint ma_node_get_output_bus_count( pNodeIntPtr  /* ??? (as_csharp_arg_type) */);
+public static extern uint ma_node_get_output_bus_count(IntPtr pNode);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_node_get_input_channels", CallingConvention = CallingConvention.Cdecl)]
 #else
 [DllImport("miniaudio", EntryPoint = "ma_node_get_input_channels", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern uint ma_node_get_input_channels( pNodeIntPtr  /* ??? (as_csharp_arg_type) */, uint inputBusIndex);
+public static extern uint ma_node_get_input_channels(IntPtr pNode, uint inputBusIndex);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_node_get_output_channels", CallingConvention = CallingConvention.Cdecl)]
 #else
 [DllImport("miniaudio", EntryPoint = "ma_node_get_output_channels", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern uint ma_node_get_output_channels( pNodeIntPtr  /* ??? (as_csharp_arg_type) */, uint outputBusIndex);
+public static extern uint ma_node_get_output_channels(IntPtr pNode, uint outputBusIndex);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_node_attach_output_bus", CallingConvention = CallingConvention.Cdecl)]
@@ -9272,7 +9271,7 @@ public static extern ma_result ma_node_set_output_bus_volume(IntPtr pNode, uint 
 #else
 [DllImport("miniaudio", EntryPoint = "ma_node_get_output_bus_volume", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern float ma_node_get_output_bus_volume( pNodeIntPtr  /* ??? (as_csharp_arg_type) */, uint outputBusIndex);
+public static extern float ma_node_get_output_bus_volume(IntPtr pNode, uint outputBusIndex);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_node_set_state", CallingConvention = CallingConvention.Cdecl)]
@@ -9286,7 +9285,7 @@ public static extern ma_result ma_node_set_state(IntPtr pNode, ma_node_state sta
 #else
 [DllImport("miniaudio", EntryPoint = "ma_node_get_state", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_node_state ma_node_get_state( pNodeIntPtr  /* ??? (as_csharp_arg_type) */);
+public static extern ma_node_state ma_node_get_state(IntPtr pNode);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_node_set_state_time", CallingConvention = CallingConvention.Cdecl)]
@@ -9300,28 +9299,28 @@ public static extern ma_result ma_node_set_state_time(IntPtr pNode, ma_node_stat
 #else
 [DllImport("miniaudio", EntryPoint = "ma_node_get_state_time", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ulong ma_node_get_state_time( pNodeIntPtr  /* ??? (as_csharp_arg_type) */, ma_node_state state);
+public static extern ulong ma_node_get_state_time(IntPtr pNode, ma_node_state state);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_node_get_state_by_time", CallingConvention = CallingConvention.Cdecl)]
 #else
 [DllImport("miniaudio", EntryPoint = "ma_node_get_state_by_time", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_node_state ma_node_get_state_by_time( pNodeIntPtr  /* ??? (as_csharp_arg_type) */, ulong globalTime);
+public static extern ma_node_state ma_node_get_state_by_time(IntPtr pNode, ulong globalTime);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_node_get_state_by_time_range", CallingConvention = CallingConvention.Cdecl)]
 #else
 [DllImport("miniaudio", EntryPoint = "ma_node_get_state_by_time_range", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_node_state ma_node_get_state_by_time_range( pNodeIntPtr  /* ??? (as_csharp_arg_type) */, ulong globalTimeBeg, ulong globalTimeEnd);
+public static extern ma_node_state ma_node_get_state_by_time_range(IntPtr pNode, ulong globalTimeBeg, ulong globalTimeEnd);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_node_get_time", CallingConvention = CallingConvention.Cdecl)]
 #else
 [DllImport("miniaudio", EntryPoint = "ma_node_get_time", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ulong ma_node_get_time( pNodeIntPtr  /* ??? (as_csharp_arg_type) */);
+public static extern ulong ma_node_get_time(IntPtr pNode);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_node_set_time", CallingConvention = CallingConvention.Cdecl)]
@@ -10062,6 +10061,13 @@ public struct ma_engine_node
     public uint isPitchDisabled;
     public uint isSpatializationDisabled;
     public uint pinnedListenerIndex;
+    public struct _fadeSettings_e__Struct {
+        public ma_atomic_float volumeBeg;
+        public ma_atomic_float volumeEnd;
+        public ma_atomic_uint64 fadeLengthInFrames;
+        public ma_atomic_uint64 absoluteGlobalTimeInFrames;
+    }
+    public _fadeSettings_e__Struct fadeSettings;
     public byte _ownsHeap;
     public void* _pHeap;
 }
@@ -11155,7 +11161,7 @@ public static extern ma_result ma_sound_seek_to_second(ma_sound* pSound, float s
 #else
 [DllImport("miniaudio", EntryPoint = "ma_sound_get_data_format", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_sound_get_data_format(in ma_sound pSound,  pFormatIntPtr  /* ??? (as_csharp_arg_type) */, ref uint pChannels, ref uint pSampleRate, ref byte pChannelMap, nuint channelMapCap);
+public static extern ma_result ma_sound_get_data_format(in ma_sound pSound, ref ma_format pFormat, ref uint pChannels, ref uint pSampleRate, ref byte pChannelMap, nuint channelMapCap);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_sound_get_cursor_in_pcm_frames", CallingConvention = CallingConvention.Cdecl)]
@@ -11664,7 +11670,7 @@ public static extern ma_result ma_libvorbis_seek_to_pcm_frame(ma_libvorbis* pVor
 #else
 [DllImport("miniaudio", EntryPoint = "ma_libvorbis_get_data_format", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_libvorbis_get_data_format(ma_libvorbis* pVorbis,  pFormatIntPtr  /* ??? (as_csharp_arg_type) */, ref uint pChannels, ref uint pSampleRate, ref byte pChannelMap, nuint channelMapCap);
+public static extern ma_result ma_libvorbis_get_data_format(ma_libvorbis* pVorbis, ref ma_format pFormat, ref uint pChannels, ref uint pSampleRate, ref byte pChannelMap, nuint channelMapCap);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_libvorbis_get_cursor_in_pcm_frames", CallingConvention = CallingConvention.Cdecl)]
@@ -11731,7 +11737,7 @@ public static extern ma_result ma_libopus_seek_to_pcm_frame(ma_libopus* pOpus, u
 #else
 [DllImport("miniaudio", EntryPoint = "ma_libopus_get_data_format", CallingConvention = CallingConvention.Cdecl)]
 #endif
-public static extern ma_result ma_libopus_get_data_format(ma_libopus* pOpus,  pFormatIntPtr  /* ??? (as_csharp_arg_type) */, ref uint pChannels, ref uint pSampleRate, ref byte pChannelMap, nuint channelMapCap);
+public static extern ma_result ma_libopus_get_data_format(ma_libopus* pOpus, ref ma_format pFormat, ref uint pChannels, ref uint pSampleRate, ref byte pChannelMap, nuint channelMapCap);
 
 #if __IOS__
 [DllImport("@rpath/miniaudio.framework/miniaudio", EntryPoint = "ma_libopus_get_cursor_in_pcm_frames", CallingConvention = CallingConvention.Cdecl)]
