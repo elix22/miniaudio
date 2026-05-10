@@ -10,8 +10,8 @@ set(MINIAUDIO_SOURCES
 )
 
 # ── Library target ──────────────────────────────────────────────────────────
-# iOS and Emscripten produce static libs; all other platforms produce shared libs.
-if(CMAKE_SYSTEM_NAME STREQUAL "iOS" OR EMSCRIPTEN)
+# Emscripten produces static libs; all other platforms (including iOS) produce shared libs.
+if(EMSCRIPTEN)
     add_library(miniaudio STATIC ${MINIAUDIO_SOURCES})
 else()
     add_library(miniaudio SHARED ${MINIAUDIO_SOURCES})
@@ -35,6 +35,12 @@ if(APPLE)
         set_target_properties(miniaudio PROPERTIES
             FRAMEWORK TRUE
             MACOSX_FRAMEWORK_IDENTIFIER com.sokolnet.miniaudio
+        )
+        target_link_libraries(miniaudio PRIVATE
+            "-framework CoreAudio"
+            "-framework AudioToolbox"
+            "-framework CoreFoundation"
+            "-framework AVFoundation"
         )
     else()
         target_compile_definitions(miniaudio PRIVATE MA_ENABLE_COREAUDIO)
