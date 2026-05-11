@@ -10239,7 +10239,7 @@ public struct ma_engine_config
     public uint noDevice;
     public ma_mono_expansion_mode monoExpansionMode;
     public IntPtr pResourceManagerVFS;
-    public IntPtr onProcess;
+    public delegate* unmanaged<void*, float*, ulong, void> onProcess;
     public void* pProcessUserData;
     public ma_resampler_config resourceManagerResampling;
     public ma_resampler_config pitchResampling;
@@ -10289,7 +10289,7 @@ public struct ma_engine
     public uint gainSmoothTimeInFrames;
     public uint defaultVolumeSmoothTimeInPCMFrames;
     public ma_mono_expansion_mode monoExpansionMode;
-    public IntPtr onProcess;
+    public delegate* unmanaged<void*, float*, ulong, void> onProcess;
     public void* pProcessUserData;
     public ma_resampler_config pitchResamplingConfig;
 }
