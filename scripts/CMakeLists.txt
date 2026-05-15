@@ -56,7 +56,7 @@ if(APPLE)
         )
     endif()
 elseif(WIN32)
-    target_compile_definitions(miniaudio PRIVATE MA_ENABLE_WASAPI MA_ENABLE_DSOUND MA_ENABLE_WINMM)
+    target_compile_definitions(miniaudio PRIVATE MA_DLL MA_ENABLE_WASAPI MA_ENABLE_DSOUND MA_ENABLE_WINMM)
 elseif(ANDROID)
     # AAudio is only available from API 26+; fall back to OpenSL ES on older levels.
     if(ANDROID_NATIVE_API_LEVEL GREATER_EQUAL 26)

@@ -28,7 +28,8 @@ Write-Host "Configuring CMake..." -ForegroundColor Yellow
 cmake $CMakeDir `
     -G "Visual Studio 17 2022" `
     -A $Architecture `
-    -DCMAKE_BUILD_TYPE="$BuildType"
+    -DCMAKE_BUILD_TYPE="$BuildType" `
+    -DBUILD_SHARED_LIBS=ON
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "✗ CMake configuration failed" -ForegroundColor Red
